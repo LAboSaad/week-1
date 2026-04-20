@@ -1,29 +1,28 @@
 package repository
 
-//data layer
 import (
 	"demo/models"
 	"demo/store"
 )
 
-func CreateUser(user models.User) models.User {
+type InMemoryUserRepo struct{}
+
+func (r *InMemoryUserRepo) CreateUser(user models.User) models.User {
 	store.Mu.Lock()
 	defer store.Mu.Unlock()
 
 	user.ID = len(store.Users) + 1
 	store.Users = append(store.Users, user)
-
 	return user
 }
 
-func GetAllUsers() []models.User {
+func (r *InMemoryUserRepo) GetAllUsers() []models.User {
 	store.Mu.RLock()
 	defer store.Mu.RUnlock()
-
 	return store.Users
 }
 
-func GetUserByID(id int) (models.User, bool) {
+func (r *InMemoryUserRepo) GetUserByID(id int) (models.User, bool) {
 	store.Mu.RLock()
 	defer store.Mu.RUnlock()
 
@@ -35,7 +34,7 @@ func GetUserByID(id int) (models.User, bool) {
 	return models.User{}, false
 }
 
-func UpdateUser(id int, updated models.User) (models.User, bool) {
+func (r *InMemoryUserRepo) UpdateUser(id int, updated models.User) (models.User, bool) {
 	store.Mu.Lock()
 	defer store.Mu.Unlock()
 
@@ -49,7 +48,7 @@ func UpdateUser(id int, updated models.User) (models.User, bool) {
 	return models.User{}, false
 }
 
-func DeleteUser(id int) bool {
+func (r *InMemoryUserRepo) DeleteUser(id int) bool {
 	store.Mu.Lock()
 	defer store.Mu.Unlock()
 
