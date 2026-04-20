@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"demo/httphelper"
 	"demo/models"
 	"demo/store"
+	"demo/validation"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -16,7 +18,12 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httphelper.WriteError(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	if err := validation.ValidateUser(user); err != nil {
+		httphelper.WriteError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -25,9 +32,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	store.Users = append(store.Users, user)
 	store.Mu.Unlock()
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	httphelper.WriteJSON(w, user, http.StatusCreated)
 }
 
 // GET /users
@@ -35,20 +40,17 @@ func ListUsers(w http.ResponseWriter, r *http.Request) {
 	store.Mu.RLock()
 	defer store.Mu.RUnlock()
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(store.Users)
+	httphelper.WriteJSON(w, store.Users, http.StatusOK)
 }
 
 // GET /users/{id}
 func GetUser(w http.ResponseWriter, r *http.Request) {
-	// idStr := strings.TrimPrefix(r.URL.Path, "/users/")
-	// id, _ := strconv.Atoi(idStr)
 	vars := mux.Vars(r)
 	idStr := vars["id"]
 	id, err := strconv.Atoi(idStr)
 
-	if err != nil {
-		http.Error(w, "something went wrong maybee?", http.StatusBadRequest)
+	if err != nil || id <= 0 {
+		httphelper.WriteError(w, "invalid user id", http.StatusBadRequest)
 		return
 	}
 
@@ -57,31 +59,33 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 
 	for _, user := range store.Users {
 		if user.ID == id {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(user)
+			httphelper.WriteJSON(w, user, http.StatusOK)
 			return
 		}
 	}
 
-	http.Error(w, "User not found", http.StatusNotFound)
+	httphelper.WriteError(w, "user not found", http.StatusNotFound)
 }
 
 // PUT /users/{id}
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
-	// idStr := strings.TrimPrefix(r.URL.Path, "/users/")
-	// id, _ := strconv.Atoi(idStr)
 	vars := mux.Vars(r)
 	idStr := vars["id"]
 	id, err := strconv.Atoi(idStr)
 
-	if err != nil {
-		http.Error(w, "user not found", http.StatusBadRequest)
+	if err != nil || id <= 0 {
+		httphelper.WriteError(w, "invalid user id", http.StatusBadRequest)
 		return
 	}
 
 	var updated models.User
 	if err := json.NewDecoder(r.Body).Decode(&updated); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httphelper.WriteError(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	if err := validation.ValidateUser(updated); err != nil {
+		httphelper.WriteError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -92,25 +96,22 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 		if user.ID == id {
 			user.Name = updated.Name
 			store.Users[i] = user
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(user)
+			httphelper.WriteJSON(w, user, http.StatusOK)
 			return
 		}
 	}
 
-	http.Error(w, "User not found", http.StatusNotFound)
+	httphelper.WriteError(w, "user not found", http.StatusNotFound)
 }
 
 // DELETE /users/{id}
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
-	// idStr := strings.TrimPrefix(r.URL.Path, "/users/")
-	// id, _ := strconv.Atoi(idStr)
 	vars := mux.Vars(r)
 	idStr := vars["id"]
 	id, err := strconv.Atoi(idStr)
 
-	if err != nil {
-		http.Error(w, "user not found", http.StatusBadRequest)
+	if err != nil || id <= 0 {
+		httphelper.WriteError(w, "invalid user id", http.StatusBadRequest)
 		return
 	}
 
@@ -125,5 +126,5 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	http.Error(w, "User not found", http.StatusNotFound)
+	httphelper.WriteError(w, "user not found", http.StatusNotFound)
 }
