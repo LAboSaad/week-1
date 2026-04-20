@@ -12,6 +12,7 @@ import (
 func main() {
 	// mux := http.NewServeMux()
 	r := mux.NewRouter()
+	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
 
 	// Health
