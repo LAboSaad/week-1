@@ -11,7 +11,7 @@ func Logger(next http.Handler) http.Handler {
 		start := time.Now()
 
 		next.ServeHTTP(w, r)
-log.Println("🔥 MIDDLEWARE ACTIVE")
+		log.Println("🔥 MIDDLEWARE ACTIVE")
 		log.Printf(
 			"%s %s %s",
 			r.Method,
