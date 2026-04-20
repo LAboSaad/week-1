@@ -1,10 +1,12 @@
 package handlers
 
+//HTTP layer ONLY
+
 import (
 	"demo/httphelper"
 	"demo/models"
-	"demo/store"
-	"demo/validation"
+	"demo/services"
+	
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -22,57 +24,41 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validation.ValidateUser(user); err != nil {
+	result, err := services.CreateUser(user)
+	if err != nil {
 		httphelper.WriteError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	store.Mu.Lock()
-	user.ID = len(store.Users) + 1
-	store.Users = append(store.Users, user)
-	store.Mu.Unlock()
-
-	httphelper.WriteJSON(w, user, http.StatusCreated)
+	httphelper.WriteJSON(w, result, http.StatusCreated)
 }
 
 // GET /users
 func ListUsers(w http.ResponseWriter, r *http.Request) {
-	store.Mu.RLock()
-	defer store.Mu.RUnlock()
-
-	httphelper.WriteJSON(w, store.Users, http.StatusOK)
+	users := services.GetAllUsers()
+	httphelper.WriteJSON(w, users, http.StatusOK)
 }
 
 // GET /users/{id}
 func GetUser(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	idStr := vars["id"]
-	id, err := strconv.Atoi(idStr)
-
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil || id <= 0 {
 		httphelper.WriteError(w, "invalid user id", http.StatusBadRequest)
 		return
 	}
 
-	store.Mu.RLock()
-	defer store.Mu.RUnlock()
-
-	for _, user := range store.Users {
-		if user.ID == id {
-			httphelper.WriteJSON(w, user, http.StatusOK)
-			return
-		}
+	user, err := services.GetUserByID(id)
+	if err != nil {
+		httphelper.WriteError(w, err.Error(), http.StatusNotFound)
+		return
 	}
 
-	httphelper.WriteError(w, "user not found", http.StatusNotFound)
+	httphelper.WriteJSON(w, user, http.StatusOK)
 }
 
 // PUT /users/{id}
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	idStr := vars["id"]
-	id, err := strconv.Atoi(idStr)
-
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil || id <= 0 {
 		httphelper.WriteError(w, "invalid user id", http.StatusBadRequest)
 		return
@@ -84,47 +70,27 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validation.ValidateUser(updated); err != nil {
+	user, err := services.UpdateUser(id, updated)
+	if err != nil {
 		httphelper.WriteError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	store.Mu.Lock()
-	defer store.Mu.Unlock()
-
-	for i, user := range store.Users {
-		if user.ID == id {
-			user.Name = updated.Name
-			store.Users[i] = user
-			httphelper.WriteJSON(w, user, http.StatusOK)
-			return
-		}
-	}
-
-	httphelper.WriteError(w, "user not found", http.StatusNotFound)
+	httphelper.WriteJSON(w, user, http.StatusOK)
 }
 
 // DELETE /users/{id}
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	idStr := vars["id"]
-	id, err := strconv.Atoi(idStr)
-
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil || id <= 0 {
 		httphelper.WriteError(w, "invalid user id", http.StatusBadRequest)
 		return
 	}
 
-	store.Mu.Lock()
-	defer store.Mu.Unlock()
-
-	for i, user := range store.Users {
-		if user.ID == id {
-			store.Users = append(store.Users[:i], store.Users[i+1:]...)
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
+	if err := services.DeleteUser(id); err != nil {
+		httphelper.WriteError(w, err.Error(), http.StatusNotFound)
+		return
 	}
 
-	httphelper.WriteError(w, "user not found", http.StatusNotFound)
+	w.WriteHeader(http.StatusNoContent)
 }
